@@ -1,0 +1,205 @@
+Nếu bạn muốn tạo một server bằng Python nhưng không sử dụng Flask, bạn có thể sử dụng `http.server` của Python để tạo một server HTTP đơn giản. Dưới đây là cách thực hiện:
+
+### Tạo server Python sử dụng `http.server`
+
+1. **Tạo server Python**:
+    - Tạo một file `server.py` và thêm mã sau:
+
+    ```python
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import sqlite3
+    import json
+
+    class RequestHandler(BaseHTTPRequestHandler):
+        def _set_headers(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+
+        def do_POST(self):
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data)
+
+            response = self.execute_query(data['query'])
+            self._set_headers()
+            self.wfile.write(json.dumps(response).encode('utf-8'))
+
+        def execute_query(self, query):
+            try:
+                conn = sqlite3.connect('example.db')
+                cursor = conn.cursor()
+                cursor.execute(query)
+                conn.commit()
+                result = cursor.fetchall()
+                conn.close()
+                return {'status': 'success', 'result': result}
+            except Exception as e:
+                return {'status': 'error', 'message': str(e)}
+
+    def run(server_class=HTTPServer, handler_class=RequestHandler, port=5000):
+        server_address = ('', port)
+        httpd = server_class(server_address, handler_class)
+        print(f'Starting server on port {port}')
+        httpd.serve_forever()
+
+    if __name__ == '__main__':
+        run()
+    ```
+
+2. **Khởi tạo cơ sở dữ liệu SQLite**:
+    - Tạo file `init_db.py` để khởi tạo cơ sở dữ liệu nếu chưa tồn tại.
+
+    ```python
+    import sqlite3
+    import os
+
+    DATABASE = 'example.db'
+
+    def init_db():
+        if not os.path.exists(DATABASE):
+            conn = sqlite3.connect(DATABASE)
+            cursor = conn.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                                id INTEGER PRIMARY KEY,
+                                name TEXT NOT NULL,
+                                age INTEGER NOT NULL)''')
+            conn.commit()
+            conn.close()
+
+    if __name__ == '__main__':
+        init_db()
+    ```
+
+    - Chạy file `init_db.py` để khởi tạo cơ sở dữ liệu:
+      ```bash
+      python init_db.py
+      ```
+
+3. **Chạy server Python**:
+    - Chạy server bằng lệnh:
+      ```bash
+      python server.py
+      ```
+
+### Tạo ứng dụng Flutter để gửi lệnh
+
+1. **Tạo dự án Flutter mới (nếu chưa có)**:
+    ```bash
+    flutter create sqlite_command_app
+    cd sqlite_command_app
+    ```
+
+2. **Thêm thư viện `http` vào dự án Flutter**:
+    - Mở file `pubspec.yaml` và thêm dòng sau vào phần `dependencies`:
+      ```yaml
+      dependencies:
+        flutter:
+          sdk: flutter
+        http: ^0.13.3
+      ```
+
+3. **Tạo giao diện người dùng để gửi lệnh**:
+    - Mở file `lib/main.dart` và thay thế bằng mã sau:
+
+    ```dart
+    import 'package:flutter/material.dart';
+    import 'package:http/http.dart' as http;
+    import 'dart:convert';
+
+    void main() {
+      runApp(MyApp());
+    }
+
+    class MyApp extends StatelessWidget {
+      @override
+      Widget build(BuildContext context) {
+        return MaterialApp(
+          title: 'SQLite Command App',
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+          ),
+          home: MyHomePage(),
+        );
+      }
+    }
+
+    class MyHomePage extends StatefulWidget {
+      @override
+      _MyHomePageState createState() => _MyHomePageState();
+    }
+
+    class _MyHomePageState extends State<MyHomePage> {
+      final TextEditingController _controller = TextEditingController();
+      String _response = '';
+
+      Future<void> _sendCommand(String command) async {
+        final url = 'http://<local-server-ip>:5000/execute';
+        try {
+          final response = await http.post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'query': command}),
+          );
+          if (response.statusCode == 200) {
+            setState(() {
+              _response = 'Success: ${jsonDecode(response.body)['result']}';
+            });
+          } else {
+            setState(() {
+              _response = 'Error: ${jsonDecode(response.body)['message']}';
+            });
+          }
+        } catch (e) {
+          setState(() {
+            _response = 'Error: $e';
+          });
+        }
+      }
+
+      @override
+      Widget build(BuildContext context) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('SQLite Command App'),
+          ),
+          body: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              children: <Widget>[
+                TextField(
+                  controller: _controller,
+                  decoration: InputDecoration(labelText: 'Enter SQLite command'),
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    _sendCommand(_controller.text);
+                  },
+                  child: Text('Send Command'),
+                ),
+                SizedBox(height: 20),
+                Text(_response),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+    ```
+
+4. **Chạy ứng dụng Flutter trên điện thoại**:
+    - Kết nối điện thoại với máy tính hoặc sử dụng trình giả lập.
+    - Chạy ứng dụng bằng lệnh:
+      ```bash
+      flutter run
+      ```
+
+5. **Thử nghiệm**:
+    - Nhập một lệnh SQLite vào ô nhập liệu trên ứng dụng Flutter, ví dụ:
+      ```sql
+      INSERT INTO users (name, age) VALUES ('Alice', 25);
+      ```
+    - Bấm nút "Send Command" và kiểm tra kết quả trả về trên giao diện ứng dụng.
+
+Với các bước trên, bạn có thể tạo một ứng dụng Flutter để gửi lệnh SQLite tới một server Python chạy trên cùng mạng local và thực thi các lệnh này. Server sử dụng `http.server` để xử lý các yêu cầu HTTP.
