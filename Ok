@@ -29,7 +29,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String _response = '';
 
   Future<void> _sendCommand(String command) async {
-    final url = 'http://<IP_MÁY_TÍNH>:5000/execute_sql';  // Thay <IP_MÁY_TÍNH> bằng IP của máy tính
+    final url = 'http://127.0.0.1:5000/execute';
     try {
       final response = await http.post(
         Uri.parse(url),
@@ -37,17 +37,12 @@ class _MyHomePageState extends State<MyHomePage> {
         body: jsonEncode({'query': command}),
       );
       if (response.statusCode == 200) {
-        final responseBody = jsonDecode(response.body);
         setState(() {
-          _response = responseBody['message'];
-          if (responseBody['status'] == 'success' && responseBody.containsKey('data')) {
-            _response += '\nData: ${jsonEncode(responseBody['data'])}';
-          }
+          _response = 'Success: ${jsonDecode(response.body)['result']}';
         });
       } else {
-        final responseBody = jsonDecode(response.body);
         setState(() {
-          _response = responseBody['message'];
+          _response = 'Error: ${jsonDecode(response.body)['message']}';
         });
       }
     } catch (e) {
